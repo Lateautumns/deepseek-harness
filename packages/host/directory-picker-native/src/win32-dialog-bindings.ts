@@ -25,20 +25,18 @@ interface Koffi {
   register(fn: (...args: unknown[]) => unknown, type: unknown): unknown
   unregister(callback: unknown): void
   sizeof(type: string): number
-  view(ref: unknown, len: number): ArrayBuffer
 }
 
 /**
  * Read a NUL-terminated UTF-16 string at a native address. koffi's
  * `_Out_ void **` out-params surface a raw address, and
  * `koffi.decode(addr, 'str16')` would dereference it as a pointer — crash
- * on real Windows — so view the memory directly instead.
+ * on real Windows. Decode `char16_t` elements until their NUL sentinel so
+ * Koffi copies only the returned string instead of exposing an oversized
+ * native-memory view, which is unsafe in the packaged desktop runtime.
  */
 function readUtf16(koffi: Koffi, address: unknown): string {
-  const bytes = Buffer.from(koffi.view(address, 32768))
-  let end = 0
-  while (end + 1 < bytes.length && bytes.readUInt16LE(end) !== 0) end += 2
-  return bytes.toString('utf16le', 0, end)
+  return koffi.decode(address, 'char16_t', -1) as string
 }
 
 const COINIT_APARTMENTTHREADED = 0x2
